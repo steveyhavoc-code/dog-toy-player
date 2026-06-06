@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Dog Toy Instructions</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { min-height: 100svh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #FFF8F0; font-family: 'Nunito', sans-serif; padding: 1.5rem; }
+  .paw-bg { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; opacity: 0.04; font-size: 80px; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 20px; padding: 20px; }
+  .card { position: relative; z-index: 1; background: white; border-radius: 28px; padding: 2rem 1.75rem; width: 100%; max-width: 360px; box-shadow: 0 8px 40px rgba(0,0,0,0.10); text-align: center; }
+  .step-badge { display: inline-block; background: #FF6B35; color: white; font-size: 13px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; padding: 6px 18px; border-radius: 50px; margin-bottom: 1.25rem; }
+  .title { font-size: 1.5rem; font-weight: 900; color: #1a1a1a; margin-bottom: 0.4rem; line-height: 1.2; }
+  .subtitle { font-size: 0.9rem; color: #999; margin-bottom: 2rem; }
+  .play-btn { width: 90px; height: 90px; border-radius: 50%; border: none; background: #FF6B35; cursor: pointer; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; transition: transform 0.15s ease, background 0.2s; position: relative; }
+  .play-btn:active { transform: scale(0.93); }
+  .play-btn.playing { background: #e85a25; }
+  .play-btn svg { width: 34px; height: 34px; fill: white; margin-left: 4px; }
+  .play-btn.playing svg { margin-left: 0; }
+  .rings { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; }
+  .ring { position: absolute; inset: -8px; border-radius: 50%; border: 2px solid rgba(255,107,53,0.3); animation: none; }
+  .ring.r2 { inset: -18px; border-color: rgba(255,107,53,0.2); }
+  .ring.r3 { inset: -28px; border-color: rgba(255,107,53,0.1); }
+  .playing-rings .ring { animation: pulse 1.5s ease-out infinite; }
+  .playing-rings .ring.r2 { animation-delay: 0.3s; }
+  .playing-rings .ring.r3 { animation-delay: 0.6s; }
+  @keyframes pulse { 0% { transform: scale(0.9); opacity: 1; } 100% { transform: scale(1.1); opacity: 0; } }
+  .progress-wrap { margin: 0 0 0.5rem; }
+  .progress-bg { height: 6px; background: #f0f0f0; border-radius: 3px; overflow: hidden; cursor: pointer; margin-bottom: 0.4rem; }
+  .progress-fill { height: 100%; background: #FF6B35; border-radius: 3px; width: 0%; transition: width 0.25s linear; }
+  .time-row { display: flex; justify-content: space-between; font-size: 12px; color: #bbb; font-family: monospace; }
+  .status { margin-top: 1.25rem; font-size: 13px; color: #bbb; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; min-height: 20px; }
+  .dog-emoji { font-size: 2.5rem; margin-bottom: 1rem; display: block; animation: wag 2s ease-in-out infinite; }
+  @keyframes wag { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+  .error-box { background: #fff3f0; border: 1px solid #ffccc0; border-radius: 12px; padding: 1rem; font-size: 13px; color: #c0392b; margin-top: 1rem; display: none; }
+</style>
+</head>
+<body>
+<div class="paw-bg" id="pawBg"></div>
+<div class="card">
+  <span class="dog-emoji">🐾</span>
+  <div class="step-badge" id="stepBadge">Step —</div>
+  <h1 class="title" id="stepTitle">Loading...</h1>
+  <p class="subtitle">Tap play to hear the instructions</p>
+  <button class="play-btn" id="playBtn" onclick="togglePlay()" aria-label="Play">
+    <div class="rings" id="rings">
+      <div class="ring r1"></div>
+      <div class="ring r2"></div>
+      <div class="ring r3"></div>
+    </div>
+    <svg id="playIcon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+  </button>
+  <div class="progress-wrap">
+    <div class="progress-bg" id="progressBg" onclick="seek(event)">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div class="time-row">
+      <span id="currentTime">0:00</span>
+      <span id="totalTime">0:00</span>
+    </div>
+  </div>
+  <p class="status" id="status">Ready</p>
+  <div class="error-box" id="errorBox">Could not load audio. Please check your connection and try again.</div>
+</div>
+<audio id="audio" preload="auto"></audio>
+<script>
+const AUDIO_URLS = [
+  null,
+  'https://steveyhavoc-code.github.io/dog-toy-player/step1.mp3',
+  'https://steveyhavoc-code.github.io/dog-toy-player/step2.mp3',
+  'https://steveyhavoc-code.github.io/dog-toy-player/step3.mp3',
+  'https://steveyhavoc-code.github.io/dog-toy-player/step4.mp3',
+  'https://steveyhavoc-code.github.io/dog-toy-player/step5.mp3',
+  'https://steveyhavoc-code.github.io/dog-toy-player/step6.mp3',
+  'https://steveyhavoc-code.github.io/dog-toy-player/step7.mp3',
+  'https://steveyhavoc-code.github.io/dog-toy-player/step8.mp3',
+  'https://steveyhavoc-code.github.io/dog-toy-player/step9.mp3',
+  'https://steveyhavoc-code.github.io/dog-toy-player/step10.mp3',
+];
+
+const STEP_NAMES = [
+  null,
+  'Lay out the t-shirts',
+  'Mark & cut the strips',
+  'Cut strips flat',
+  'Cut the tie strips',
+  'Make a cross & add ball',
+  'Fold strips around ball',
+  'Tie the base knot',
+  'Cut into tentacles',
+  'Plait the strips',
+  'Your toy is ready!',
+];
+
+const params = new URLSearchParams(window.location.search);
+const step = Math.min(Math.max(parseInt(params.get('step')) || 1, 1), 10);
+
+document.getElementById('stepBadge').textContent = `Step ${step}`;
+document.getElementById('stepTitle').textContent = STEP_NAMES[step];
+
+const pawBg = document.getElementById('pawBg');
+for (let i = 0; i < 30; i++) pawBg.innerHTML += '🐾';
+
+const audio   = document.getElementById('audio');
+audio.src     = AUDIO_URLS[step];
+
+const playBtn  = document.getElementById('playBtn');
+const playIcon = document.getElementById('playIcon');
+const rings    = document.getElementById('rings');
+const fill     = document.getElementById('progressFill');
+const curTime  = document.getElementById('currentTime');
+const totTime  = document.getElementById('totalTime');
+const status   = document.getElementById('status');
+const errorBox = document.getElementById('errorBox');
+
+const PLAY_SVG  = '<path d="M8 5v14l11-7z"/>';
+const PAUSE_SVG = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+
+function fmt(s) {
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return m + ':' + (sec < 10 ? '0' : '') + sec;
+}
+function togglePlay() {
+  if (audio.paused) {
+    audio.play().catch(() => { status.textContent = 'Tap again to play'; });
+  } else {
+    audio.pause();
+  }
+}
+function seek(e) {
+  if (!audio.duration) return;
+  const rect = document.getElementById('progressBg').getBoundingClientRect();
+  audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
+}
+audio.addEventListener('play', () => {
+  playIcon.innerHTML = PAUSE_SVG;
+  playBtn.classList.add('playing');
+  rings.classList.add('playing-rings');
+  status.textContent = 'Playing…';
+  errorBox.style.display = 'none';
+});
+audio.addEventListener('pause', () => {
+  playIcon.innerHTML = PLAY_SVG;
+  playBtn.classList.remove('playing');
+  rings.classList.remove('playing-rings');
+  status.textContent = audio.ended ? '🎉 Finished!' : 'Paused';
+});
+audio.addEventListener('loadedmetadata', () => { totTime.textContent = fmt(audio.duration); });
+audio.addEventListener('timeupdate', () => {
+  if (!audio.duration) return;
+  fill.style.width = (audio.currentTime / audio.duration * 100) + '%';
+  curTime.textContent = fmt(audio.currentTime);
+});
+audio.addEventListener('error', () => {
+  status.textContent = 'Error';
+  errorBox.style.display = 'block';
+});
+</script>
+</body>
+</html>
